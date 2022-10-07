@@ -1,0 +1,133 @@
+---
+title: "Practice Project"
+author: "Alice Austin-Lee"
+date: "27/09/2022"
+output:
+  bookdown::pdf_document2: default
+  bookdown::word_document2: default
+  bookdown::html_document2: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      fig.retina = 3)
+```
+
+```{r packages}
+
+#create an R script called 00-pkg and source it to the Rmd file
+
+source("R/00-pkg.R")
+
+
+```
+```{r unnest}
+
+text <- c("Because I could not stop for Death -",
+          "He kindly stopped for me -",
+          "The Carrige held but just Ourselves -",
+          "and Immortality")
+
+text
+
+text_df <- tibble(line = 1:4, text = text)
+
+text_df
+```
+```{r tokens}
+
+text_df %>% 
+  unnest_tokens(word, text)
+```
+The **`tokenizer`** package helps to separate each line of text in the original data frame into token. The default tokenizing is for words, but other options include characters, n-grams, sentences, lines, paragraphs, or separation around a regex pattern.
+
+```{r jane-austen}
+
+original_books <- austen_books() %>% 
+  group_by(book) %>% 
+  mutate(linenumber = row_number(),
+         chapter = cumsum(str_detect(text,
+                          regex("^chapter[\\divxlc]",
+                                ignore_case = TRUE)))) %>% 
+  ungroup()
+
+original_books
+```
+
+```{r tidy-austen}
+
+tidy_books <- original_books %>% 
+  unnest_tokens(word, text)
+
+tidy_books
+```
+
+Now that the data is in one-word-per-row format, we can manipulate it with tidy tools like **`dplyr`**. Often in text analysis, we will want to remove stop words; stop words are words that are not useful for analysis such as "of", "to", "the", and so forth. We can remove stop words with an **`anti_join`**.
+
+```{r stop-words}
+
+data(stop_words)
+
+tidy_books <- tidy_books %>% 
+  anti_join(stop_words)
+```
+
+The **`stop_words`** dataset in the tidytext package contains stop words from three lexicons. We can use them all together, as we have here, or **`filter`** to only use one set of stop words if that is more appropriate for a certain analysis.
+
+We can also use the **`dplyr`** function **`count()`** to find the most common words in all the books as a whole.
+
+```{r count}
+
+tidy_books %>% 
+  count(word, sort = TRUE)
+```
+
+```{r plot}
+
+tidy_books %>% 
+  count(word, sort = TRUE) %>% 
+  filter(n > 600) %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r importing abstracts}
+
+#using the easyPubMed package perform a Boolean search
+
+coca_query <- "colon cancer AND gene NOT review"
+
+#retrieve the PubMed IDs of each article 
+
+coca_id <- get_pubmed_ids(coca_query)
+
+#retrieve all the data from the articles using ASCII character encoding
+
+coca_data <- fetch_pubmed_data(coca_id, encoding = "ASCII")
+
+#create a dataframe of the articles
+
+coca_df <- table_articles_byAuth(coca_data,
+                                 included_authors = "first",
+                                 max_chars = 2000,
+                                 encoding = "ASCII")
+
+#collect all the abstracts together and collate them into a corpus
+
+coca_abs <- coca_df$abstract
+
+coca_corpus <- Corpus(VectorSource(coca_abs))
+
+#create a document term matrix (DTM)
+
+coca_dtm <- TermDocumentMatrix(coca_corpus, control = list(removePunctuation = TRUE, stopwords = TRUE))
+
+coca_dtm
+```
+To minimise the noise of repetitive words such as "cancer" and "gene", conduct term frequency-inverse document frequency (tf-idf) analysis.
+
+
