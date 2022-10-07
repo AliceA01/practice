@@ -126,7 +126,7 @@ coca_corpus <- Corpus(VectorSource(coca_abs))
 
 coca_dtm <- TermDocumentMatrix(coca_corpus, control = list(removePunctuation = TRUE, stopwords = TRUE))
 
-coca_dtm
+coca_dtm #document term matrix
 ```
 To minimise the noise of repetitive words such as "cancer" and "gene", conduct term frequency-inverse document frequency (tf-idf) analysis.
 
